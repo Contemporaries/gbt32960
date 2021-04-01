@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DeviceTypeRepository extends JpaRepository<DeviceType, Integer>,
         JpaSpecificationExecutor<DeviceType> {
@@ -13,6 +14,6 @@ public interface DeviceTypeRepository extends JpaRepository<DeviceType, Integer>
     @Query(value ="select max(t.id) from DeviceType t")
     Integer getMaxId();
 
-    List<DeviceType> findDeviceTypesByDataStationTypeId(int dataStationTypeId);
+    Optional<List<DeviceType>> findDeviceTypesByDataStationTypeId(int dataStationTypeId);
 
 }

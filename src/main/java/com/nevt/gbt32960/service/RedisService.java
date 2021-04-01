@@ -34,7 +34,6 @@ public class RedisService {
         }
     }
 
-
     private RedisTemplate<String,Object> template() {
         return redisConfig.redisTemplateJackson();
     }

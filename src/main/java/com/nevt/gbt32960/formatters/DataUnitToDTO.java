@@ -15,7 +15,10 @@ import com.nevt.gbt32960.repository.entity.DataStation;
 import com.nevt.gbt32960.repository.entity.Device;
 import com.nevt.gbt32960.repository.entity.DeviceType;
 import com.nevt.gbt32960.repository.entity.ParameterDefine;
+import com.nevt.gbt32960.service.PostgreService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -28,16 +31,7 @@ import java.util.stream.Collectors;
 public class DataUnitToDTO {
 
     @Resource
-    private DataStationRepository dataStationRepository;
-
-    @Resource
-    private DeviceRepository deviceRepository;
-
-    @Resource
-    private ParameterDefineRepository parameterDefineRepository;
-
-    @Resource
-    private DeviceTypeRepository deviceTypeRepository;
+    private PostgreService postgreService;
 
     public Envelope toDTO(DataUnit dataUnit) {
         Optional<DataStation> exits = isExits(dataUnit.getFrameHeader().getVin());
@@ -61,7 +55,7 @@ public class DataUnitToDTO {
             envelope.setDataStationTypeId(d.getDataStationTypeId());
             envelope.setCTime(TimeFormat.zonedDateTimeToDate(dataUnit.getDataCollectionTime()));
 
-            Optional<List<Device>> devicesByDataStationId = deviceRepository.findDevicesByDataStationId(d.getId());
+            Optional<List<Device>> devicesByDataStationId = postgreService.findDevices(d.getId());
 
             devicesByDataStationId.ifPresent(dl -> {
                 dl.forEach(dll -> {
@@ -69,7 +63,7 @@ public class DataUnitToDTO {
 
                     Map<String,Object> values = new HashMap<>();
 
-                    Optional<List<ParameterDefine>> parameterDefinesByDeviceTypeId = parameterDefineRepository.findParameterDefinesByDeviceTypeId(dll.getDeviceTypeId());
+                    Optional<List<ParameterDefine>> parameterDefinesByDeviceTypeId = postgreService.findParameterDefines(dll.getDeviceTypeId());
 
                     List<Motor> motorList = dataUnit.getMotors();
                     Engine engine = dataUnit.getEngine();
@@ -133,18 +127,18 @@ public class DataUnitToDTO {
 
     private Envelope save(DataUnit dataUnit) {
         DataStation dataStation = toDataStation(dataUnit);
-        dataStationRepository.save(dataStation);
+        postgreService.saveDataStation(dataStation);
         List<Device> devices = toDevice(
-                deviceTypeRepository.findDeviceTypesByDataStationTypeId(dataStation.getDataStationTypeId()),
+                postgreService.findDeviceTypes(dataStation.getDataStationTypeId()),
                 dataStation.getId(),
                 dataUnit);
-        deviceRepository.saveAll(devices);
+        postgreService.saveAllDevice(devices);
         return find(dataUnit);
     }
 
-    private DataStation toDataStation(DataUnit dataUnit) {
+    public DataStation toDataStation(DataUnit dataUnit) {
         DataStation dataStation = new DataStation();
-        AtomicInteger atomicInteger = new AtomicInteger(dataStationRepository.getMaxId());
+        AtomicInteger atomicInteger = new AtomicInteger(postgreService.findDataStationMaxId());
 
         dataStation.setDataStationTypeId(DataStationEnum.VEHICLE.getTypeId());
         dataStation.setId(atomicInteger.incrementAndGet());
@@ -157,7 +151,7 @@ public class DataUnitToDTO {
     private List<Device> toDevice(List<DeviceType> deviceTypeList, int dataStationId, DataUnit dataUnit) {
 
         List<Device> result = new ArrayList<>(deviceTypeList.size());
-        int dId = deviceRepository.getMaxId();
+        int dId = postgreService.findDeviceMaxId();
         AtomicInteger atomicInteger = new AtomicInteger();
         atomicInteger.set(dId);
 
@@ -213,10 +207,10 @@ public class DataUnitToDTO {
     }
 
     private Optional<DataStation> isExits(String name) {
-        return dataStationRepository.findDataStationByName(name);
+        return postgreService.findDataStationByName(name);
     }
 
-    private Device device(int dataStationId, AtomicInteger atomicInteger, int deviceTypeId, String status) {
+    public Device device(int dataStationId, AtomicInteger atomicInteger, int deviceTypeId, String status) {
         Device device = new Device();
         device.setDeviceIndex(0);
         device.setDataStationId(dataStationId);

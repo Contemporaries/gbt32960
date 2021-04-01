@@ -89,7 +89,7 @@ public class Client {
     private static void startConsoleThread() {
         new Thread(() ->
         {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 200; i++) {
                 try {
                     sendChatMsg();
                 } catch (InvalidProtocolBufferException e) {

@@ -2,6 +2,7 @@ package com.nevt.gbt32960.protocol;
 
 import com.alibaba.fastjson.JSON;
 import com.nevt.common.dto.Envelope;
+import com.nevt.common.factory.ThreadFactoryCustomer;
 import com.nevt.common.http.HTTPTask;
 import com.nevt.gbt32960.formatters.DataUnitToDTO;
 import com.nevt.gbt32960.formatters.FormatterToDataUnit;
@@ -26,6 +27,8 @@ import io.netty.handler.timeout.IdleStateEvent;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.ExecutorService;
+
 @Slf4j
 @ChannelHandler.Sharable
 public class ProtocolHandler extends ChannelDuplexHandler {
@@ -33,6 +36,8 @@ public class ProtocolHandler extends ChannelDuplexHandler {
     private static final String KEY = "PLATFORM";
 
     private static final String URL = "http://nevt05:30201/api/input";
+
+    private static final ExecutorService EXECUTOR_SERVICE = ThreadFactoryCustomer.defaultExecutorService();
 
     @Getter
     private static final ProtocolHandler instance = new ProtocolHandler();
@@ -78,7 +83,6 @@ public class ProtocolHandler extends ChannelDuplexHandler {
 
                 context.writeAndFlush(responseMessage(header.getVin(), RequestType.PLATFORM_LOGIN_RESPONSE, ResponseTag.SUCCESS));
 
-
                 log.info("Platform login success! login time: ==> "
                         + TimeFormat.longTimeToZoneDateTime(loginPlatform.getLoginTime()));
             } else {
@@ -106,11 +110,13 @@ public class ProtocolHandler extends ChannelDuplexHandler {
         switch (header.getRequestType()) {
             case REISSUE:
             case REAL_TIME:
-                RealTimeReport realTimeReport = (RealTimeReport) message.getDataUnit();
-                DataUnit dataUnit = FormatterToDataUnit.RealTimeReportToDataUnit(realTimeReport,header);
-                Envelope envelope = dataUnitToDTO().toDTO(dataUnit);
+                EXECUTOR_SERVICE.execute(() -> {
+                    RealTimeReport realTimeReport = (RealTimeReport) message.getDataUnit();
+                    DataUnit dataUnit = FormatterToDataUnit.RealTimeReportToDataUnit(realTimeReport, header);
+                    Envelope envelope = dataUnitToDTO().toDTO(dataUnit);
 //                send(envelope);
-                log.info("envelope: ==> " + envelope);
+                    log.info("envelope: ==> " + envelope);
+                });
                 break;
             case PLATFORM_LOGIN:
                 platformLoginResponse(context, msg);
